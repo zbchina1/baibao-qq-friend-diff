@@ -1,0 +1,67 @@
+(function() {
+    var results = {};
+    var keywords = ["跳到内容区", "生日祝福", "官方Qzone"];
+
+    function scanDoc(doc) {
+        try {
+            var links = doc.getElementsByTagName("a");
+            for (var i = 0; i < links.length; i++) {
+                var el = links[i];
+                var href = el.href || "";
+                if (href.indexOf("uin=") > -1 || href.indexOf("qzone.qq.com/") > -1) {
+                    var qqMatch = href.match(/uin=(\d+)/) || href.match(/qzone\.qq\.com\/(\d+)/);
+                    if (qqMatch) {
+                        var qq = qqMatch[1];
+                        var name = (el.innerText || el.textContent || "").trim();
+                        
+                        // 过滤黑名单
+                        var isIgnored = false;
+                        for(var k=0; k<keywords.length; k++){
+                            if(name.indexOf(keywords[k]) > -1) { isIgnored = true; break; }
+                        }
+                        if (isIgnored) continue;
+                        
+                        // 检查是否可见
+                        var style = window.getComputedStyle(el);
+                        var isVisible = el.offsetWidth > 0 && el.offsetHeight > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+                        
+                        // 去掉过滤纯数字的限制，并记录
+                        if (qq && name) {
+                            if (!results[qq]) {
+                                results[qq] = {name: name, visible: isVisible};
+                            } else if (isVisible) {
+                                results[qq].visible = true;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+
+    scanDoc(document);
+    var iframes = document.getElementsByTagName("iframe");
+    for (var i = 0; i < iframes.length; i++) {
+        try {
+            scanDoc(iframes[i].contentDocument || iframes[i].contentWindow.document);
+        } catch(e) {}
+    }
+
+    var visibleText = "";
+    var count = 0;
+
+    for (var qq in results) {
+        if (results[qq].visible) {
+            // 加上你要求的专属前缀
+            visibleText += results[qq].name + " 【【【QQ号：" + qq + "\n";
+            count++;
+        }
+    }
+
+    if (count === 0) {
+        console.log("❌ 没抓到可见好友。请确保名单已经完全加载出来。");
+    } else {
+        console.log("✅ 成功抓取！共 " + count + " 人。请复制下面框里的内容：\n");
+        console.log(visibleText);
+    }
+})();
